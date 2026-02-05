@@ -1,0 +1,10 @@
+{
+  "name": "steam-console",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev:server": "cd server && ts-node-dev index.ts",
+    "dev:client": "cd client && npm run dev",
+    "dev": "npm run dev:server"
+  }
+}
