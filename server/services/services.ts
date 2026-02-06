@@ -12,14 +12,17 @@ interface ServiceDef {
   cwd: string;
 }
 
+// Use correct npm binary per platform (avoids relying on shell and cmd.exe)
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
 export const services: ServiceDef[] = [
   {
     id: 'devServer',
     name: 'Local Dev Server',
-    command: 'npm',
+    command: npmCommand,
     args: ['run', 'dev'],
-    // Adjust this if your client path is different
-    cwd: path.join(__dirname, '..', 'client')
+    // Compiled JS lives in dist/services; go two levels up to project root, then into client
+    cwd: path.join(__dirname, '..', '..', 'client')
   }
 ];
 
@@ -60,7 +63,7 @@ export function startService(id: string) {
   const svc = services.find(s => s.id === id);
   if (!svc || processes.has(svc.id)) return;
 
-  const child = spawn(svc.command, svc.args, { cwd: svc.cwd, shell: true });
+  const child = spawn(svc.command, svc.args, { cwd: svc.cwd });
   processes.set(svc.id, child);
 
   child.stdout.on('data', buf => {
@@ -71,6 +74,10 @@ export function startService(id: string) {
   child.stderr.on('data', buf => {
     console.error(`[${svc.name} ERROR]`, buf.toString());
     // TODO: broadcast error logs to WebSocket clients if desired
+  });
+
+  child.on('error', err => {
+    console.error(`[${svc.name}] spawn error`, err);
   });
 
   child.on('exit', code => {
@@ -90,13 +97,18 @@ export function stopService(id: string) {
 
 export function getServiceStatus(svc: ServiceDef) {
   const running = processes.has(svc.id);
+  console.log('STATUS', {
+    id: svc.id,
+    running,
+    cpu: currentCpuPercent,
+    memory: currentMemPercent
+  });
   return {
     id: svc.id,
     name: svc.name,
     running,
-    // Real backend CPU/memory usage when the boiler is “on”
-    cpu: running ? currentCpuPercent : 0,
-    memory: running ? currentMemPercent : 0,
+    cpu: currentCpuPercent,
+    memory: currentMemPercent,
     lastError: null
   };
 }
